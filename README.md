@@ -175,9 +175,9 @@ NYC_Talent_Dashboard/
 
 ## 🔗 Connect
 
-Built by **[Virendra Maurya](https://github.com/viru9192)**
+Built by **[Viranchi More](https://github.com/viru9192)**
 
-If you're a recruiter, data professional, or hiring manager interested in analytical work that bridges AI tooling with real business decision-making — let's connect on [LinkedIn](https://www.linkedin.com/in/).
+If you're a recruiter, data professional, or hiring manager interested in analytical work that bridges AI tooling with real business decision-making — let's connect on [LinkedIn](https://www.linkedin.com/in/viranchimore/).
 
 ---
 
@@ -187,4 +187,3 @@ Give the repo a **star** — it helps others discover the project and shows what
 
 ---
 
-*Built with Claude by Anthropic · Dataset: NYC Open Data · April 2026*
