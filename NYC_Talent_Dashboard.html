@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NYC Government Talent Intelligence Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+  :root {
+    --bg: #060d1a;
+    --surface: #0d1c30;
+    --card: #111f35;
+    --border: #1e3352;
+    --blue: #2563EB;
+    --blue-light: #3b82f6;
+    --blue-glow: rgba(37,99,235,0.15);
+    --green: #10B981;
+    --red: #EF4444;
+    --amber: #F59E0B;
+    --purple: #8B5CF6;
+    --cyan: #06B6D4;
+    --text: #e2eaf4;
+    --text-muted: #7a93b0;
+    --text-dim: #4a6380;
+    --accent: #2563EB;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* HEADER */
+  .header {
+    background: linear-gradient(135deg, #070f1e 0%, #0d1c30 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(10px);
+  }
+  .header-left { display: flex; align-items: center; gap: 16px; }
+  .logo-badge {
+    width: 38px; height: 38px;
+    background: linear-gradient(135deg, #1d4ed8, #2563EB);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; box-shadow: 0 0 20px rgba(37,99,235,0.4);
+  }
+  .header-title { font-size: 16px; font-weight: 700; letter-spacing: -0.3px; }
+  .header-sub { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+  .header-right { display: flex; align-items: center; gap: 20px; }
+  .header-meta { text-align: right; }
+  .header-meta span { display: block; font-size: 11px; color: var(--text-muted); }
+  .header-meta strong { font-size: 12px; color: var(--text); font-weight: 500; }
+  .live-dot { width: 8px; height: 8px; background: var(--green); border-radius: 50%; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(16,185,129,0.4)} 50%{opacity:.7;box-shadow:0 0 0 6px rgba(16,185,129,0)} }
+
+  /* FILTER BAR */
+  .filter-bar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 32px;
+    position: sticky;
+    top: 64px;
+    z-index: 99;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .filter-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .8px; white-space: nowrap; }
+  .filter-group { display: flex; align-items: center; gap: 6px; }
+  select {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 10px;
+    border-radius: 7px;
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    outline: none;
+    transition: border-color .2s;
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='%237a93b0'%3E%3Cpath d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    padding-right: 24px;
+  }
+  select:hover, select:focus { border-color: var(--blue); }
+  .btn-reset {
+    background: linear-gradient(135deg, #1d4ed8, #2563EB);
+    color: white; border: none;
+    padding: 7px 16px; border-radius: 7px;
+    font-size: 12px; font-family: inherit; font-weight: 600;
+    cursor: pointer; margin-left: auto;
+    transition: all .2s; white-space: nowrap;
+  }
+  .btn-reset:hover { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(37,99,235,.4); }
+
+  /* MAIN */
+  .main { padding: 24px 32px; }
+
+  /* KPI CARDS */
+  .kpi-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; margin-bottom: 24px; }
+  .kpi-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px 20px;
+    position: relative;
+    overflow: hidden;
+    transition: transform .2s, box-shadow .2s;
+  }
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 3px;
+    background: var(--accent-color, var(--blue));
+    border-radius: 14px 14px 0 0;
+  }
+  .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,.4); }
+  .kpi-label { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 8px; }
+  .kpi-value { font-size: 28px; font-weight: 700; line-height: 1; letter-spacing: -1px; color: var(--text); font-family: 'DM Mono', monospace; }
+  .kpi-sub { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
+  .kpi-badge { display: inline-block; padding: 2px 8px; border-radius: 100px; font-size: 10px; font-weight: 600; margin-top: 4px; }
+  .badge-green { background: rgba(16,185,129,.15); color: var(--green); }
+  .badge-blue { background: rgba(37,99,235,.15); color: var(--blue-light); }
+  .badge-amber { background: rgba(245,158,11,.15); color: var(--amber); }
+
+  /* CHART GRID */
+  .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+  .chart-full { grid-column: 1 / -1; }
+  .chart-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px 24px;
+    position: relative;
+  }
+  .chart-header { margin-bottom: 18px; }
+  .chart-title { font-size: 14px; font-weight: 700; color: var(--text); letter-spacing: -0.2px; }
+  .chart-subtitle { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+  .chart-info {
+    position: absolute;
+    top: 20px; right: 20px;
+    width: 20px; height: 20px;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; color: var(--text-muted);
+    cursor: help;
+  }
+  .chart-info:hover .tooltip-text { display: block; }
+  .tooltip-text {
+    display: none;
+    position: absolute;
+    right: 0; top: 28px;
+    background: #1a2d47;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 11px;
+    color: var(--text);
+    width: 220px;
+    z-index: 10;
+    line-height: 1.6;
+    box-shadow: 0 8px 30px rgba(0,0,0,.5);
+  }
+  .chart-wrap { position: relative; }
+  canvas { max-height: 280px; }
+  .toggle-row { display: flex; gap: 6px; margin-bottom: 12px; }
+  .toggle-btn {
+    padding: 5px 12px; border-radius: 6px; font-size: 11px; font-weight: 600;
+    border: 1px solid var(--border); background: transparent; color: var(--text-muted);
+    cursor: pointer; transition: all .2s;
+  }
+  .toggle-btn.active { background: var(--blue); border-color: var(--blue); color: white; }
+
+  /* HEATMAP */
+  .heatmap-wrap { overflow-x: auto; }
+  .heatmap-table { border-collapse: collapse; width: 100%; font-size: 10px; }
+  .heatmap-table th {
+    padding: 4px 6px; text-align: center; color: var(--text-muted);
+    font-weight: 500; white-space: nowrap;
+  }
+  .heatmap-table th.agency-col { text-align: left; min-width: 180px; }
+  .heatmap-cell {
+    padding: 6px 4px; text-align: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    border-radius: 4px;
+    transition: transform .1s;
+    cursor: default;
+  }
+  .heatmap-cell:hover { transform: scale(1.2); z-index: 5; position: relative; }
+
+  /* TREEMAP */
+  #treemap { width: 100%; height: 280px; }
+  #treemap rect { stroke: var(--card); stroke-width: 2px; rx: 4; transition: opacity .2s; }
+  #treemap rect:hover { opacity: 0.85; }
+  #treemap text { pointer-events: none; }
+  .treemap-tooltip {
+    position: fixed;
+    background: #1a2d47;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    pointer-events: none;
+    z-index: 200;
+    display: none;
+    max-width: 200px;
+    box-shadow: 0 8px 30px rgba(0,0,0,.5);
+  }
+
+  /* SCATTER */
+  #scatter-wrap canvas { max-height: 300px; }
+
+  /* RADAR */
+  #radar-wrap canvas { max-height: 300px; }
+
+  /* INSIGHTS */
+  .insights-panel {
+    background: linear-gradient(135deg, #0d1c30 0%, #111f35 100%);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px 28px;
+    margin-top: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .insights-panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; width: 4px; height: 100%;
+    background: linear-gradient(180deg, var(--blue), var(--purple));
+  }
+  .insights-header { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+  .insights-icon { font-size: 20px; }
+  .insights-title { font-size: 16px; font-weight: 700; }
+  .insights-sub { font-size: 11px; color: var(--text-muted); }
+  .insights-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .insight-item {
+    background: rgba(255,255,255,.03);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .insight-num {
+    width: 24px; height: 24px;
+    background: var(--blue-glow);
+    border: 1px solid var(--blue);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: var(--blue-light);
+    flex-shrink: 0;
+  }
+  .insight-text { font-size: 12px; color: var(--text); line-height: 1.6; }
+  .insight-text strong { color: var(--blue-light); }
+
+  /* SCROLL BAR */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--surface); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* RESPONSIVE */
+  @media (max-width: 1200px) {
+    .kpi-row { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (max-width: 900px) {
+    .chart-grid { grid-template-columns: 1fr; }
+    .kpi-row { grid-template-columns: repeat(2, 1fr); }
+    .insights-grid { grid-template-columns: 1fr; }
+    .filter-bar { gap: 8px; }
+    .main { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-left">
+    <div class="logo-badge">🏙️</div>
+    <div>
+      <div class="header-title">NYC Government Talent Intelligence Dashboard</div>
+      <div class="header-sub">Executive Analytics · Human Capital Division</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="header-meta">
+      <span>Last Updated</span>
+      <strong>January 26, 2026</strong>
+    </div>
+    <div class="header-meta">
+      <span>Dataset</span>
+      <strong>2,796 Postings</strong>
+    </div>
+    <div class="live-dot" title="Live filters active"></div>
+  </div>
+</header>
+
+<!-- FILTER BAR -->
+<div class="filter-bar">
+  <span class="filter-label">Filters</span>
+  <div class="filter-group">
+    <select id="f-agency"><option value="">All Agencies</option></select>
+  </div>
+  <div class="filter-group">
+    <select id="f-category"><option value="">All Categories</option></select>
+  </div>
+  <div class="filter-group">
+    <select id="f-level"><option value="">All Career Levels</option></select>
+  </div>
+  <div class="filter-group">
+    <select id="f-type"><option value="">Int + Ext</option><option value="External">External</option><option value="Internal">Internal</option></select>
+  </div>
+  <div class="filter-group">
+    <select id="f-freq"><option value="">All Frequencies</option><option value="Annual">Annual</option><option value="Hourly">Hourly</option><option value="Daily">Daily</option></select>
+  </div>
+  <div class="filter-group">
+    <select id="f-ft"><option value="">FT + PT</option><option value="F">Full-Time</option><option value="P">Part-Time</option></select>
+  </div>
+  <button class="btn-reset" onclick="resetFilters()">↺ Reset All</button>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- KPI CARDS -->
+  <div class="kpi-row">
+    <div class="kpi-card" style="--accent-color: #2563EB">
+      <div class="kpi-label">Total Postings</div>
+      <div class="kpi-value" id="kpi-total">2,796</div>
+      <div class="kpi-sub">Unique job listings</div>
+    </div>
+    <div class="kpi-card" style="--accent-color: #10B981">
+      <div class="kpi-label">Open Positions</div>
+      <div class="kpi-value" id="kpi-positions">6,836</div>
+      <div class="kpi-sub">Total headcount slots</div>
+    </div>
+    <div class="kpi-card" style="--accent-color: #F59E0B">
+      <div class="kpi-label">Avg Annual Salary</div>
+      <div class="kpi-value" id="kpi-salary">$76K</div>
+      <div class="kpi-sub">Annual roles only</div>
+    </div>
+    <div class="kpi-card" style="--accent-color: #8B5CF6">
+      <div class="kpi-label">External Postings</div>
+      <div class="kpi-value" id="kpi-external">50.5%</div>
+      <span class="kpi-badge badge-blue" id="kpi-internal-badge">vs 49.5% Internal</span>
+    </div>
+    <div class="kpi-card" style="--accent-color: #06B6D4">
+      <div class="kpi-label">Top Hiring Agency</div>
+      <div class="kpi-value" style="font-size:13px;letter-spacing:0;line-height:1.3" id="kpi-top-agency">DDC</div>
+      <div class="kpi-sub" id="kpi-top-agency-count">476 postings</div>
+    </div>
+    <div class="kpi-card" style="--accent-color: #10B981">
+      <div class="kpi-label">Full-Time Roles</div>
+      <div class="kpi-value" id="kpi-ft">95.9%</div>
+      <span class="kpi-badge badge-green">Dominant</span>
+    </div>
+  </div>
+
+  <!-- CHARTS ROW 1 -->
+  <div class="chart-grid">
+    <!-- Chart 1: Top Agencies Bar -->
+    <div class="chart-card">
+      <div class="chart-header">
+        <div class="chart-title">Top 10 Agencies by Postings</div>
+        <div class="chart-subtitle">Sorted descending · hover for % of total</div>
+      </div>
+      <div class="chart-info">ℹ<span class="tooltip-text">Shows the 10 NYC agencies with the most job postings, ranked by count. Reflects hiring activity concentration across government.</span></div>
+      <div class="chart-wrap"><canvas id="chart-agencies"></canvas></div>
+    </div>
+
+    <!-- Chart 2: Donut Career Level -->
+    <div class="chart-card">
+      <div class="chart-header">
+        <div class="chart-title">Career Level Distribution</div>
+        <div class="chart-subtitle">Share of all postings by seniority tier</div>
+      </div>
+      <div class="chart-info">ℹ<span class="tooltip-text">Breaks down all job postings by career level: Entry, Experienced, Manager, Executive, Student. Shows the seniority composition of NYC's talent pipeline.</span></div>
+      <div class="chart-wrap" style="max-height:280px;display:flex;align-items:center;justify-content:center">
+        <canvas id="chart-career" style="max-height:260px;max-width:320px"></canvas>
+      </div>
+    </div>
+
+    <!-- Chart 3: Grouped Bar Internal/External -->
+    <div class="chart-card">
+      <div class="chart-header">
+        <div class="chart-title">Internal vs. External by Job Category</div>
+        <div class="chart-subtitle">Top 8 categories · side-by-side comparison</div>
+      </div>
+      <div class="chart-info">ℹ<span class="tooltip-text">Compares internal promotions vs. external hires across the top 8 job categories. Reveals which domains lean toward internal mobility.</span></div>
+      <div class="chart-wrap"><canvas id="chart-intext"></canvas></div>
+    </div>
+
+    <!-- Chart 4: Salary Range Float Bar -->
+    <div class="chart-card">
+      <div class="chart-header">
+        <div class="chart-title">Salary Range by Job Category</div>
+        <div class="chart-subtitle">Annual roles only · min–avg–max band</div>
+      </div>
+      <div class="chart-info">ℹ<span class="tooltip-text">Floating bar chart showing minimum, average, and maximum annual salary per category. Highlights the highest and lowest paying domains.</span></div>
+      <div class="chart-wrap"><canvas id="chart-salary"></canvas></div>
+    </div>
+  </div>
+
+  <!-- CHARTS ROW 2 -->
+  <div class="chart-grid">
+    <!-- Chart 5: Stacked Bar Positions -->
+    <div class="chart-card">
+      <div class="chart-header">
+        <div class="chart-title">Open Positions by Agency (Top 10)</div>
+        <div class="chart-subtitle">Stacked by career level · headcount volume</div>
+      </div>
+      <div class="chart-info">ℹ<span class="tooltip-text">Shows total headcount slots (not postings count) by agency, stacked by career level. Reveals which agencies need the most people.</span></div>
+      <div class="chart-wrap"><canvas id="chart-positions"></canvas></div>
+    </div>
+
+    <!-- Chart 6: Time Series -->
+    <div class="chart-card">
+      <div class="chart-header">
+        <div class="chart-title">Posting Activity Over Time</div>
+        <div class="chart-subtitle">Monthly trend with area fill</div>
+      </div>
+      <div class="chart-info">ℹ<span class="tooltip-text">Tracks job posting volume by month, showing hiring surges and slowdowns over time. Toggle between posting count and total positions.</span></div>
+      <div class="toggle-row">
+        <button class="toggle-btn active" id="btn-count" onclick="setTimeMode('count')">Post Count</button>
+        <button class="toggle-btn" id="btn-pos" onclick="setTimeMode('positions')">Positions</button>
+      </div>
+      <div class="chart-wrap"><canvas id="chart-time"></canvas></div>
+    </div>
+  </div>
+
+  <!-- CHARTS ROW 3 -->
+  <div class="chart-grid">
+    <!-- Chart 7: Treemap -->
+    <div class="chart-card">
+      <div class="chart-header">
+        <div class="chart-title">Job Category Treemap</div>
+        <div class="chart-subtitle">Area proportional to posting count · hover for avg salary</div>
+      </div>
+      <div class="chart-info">ℹ<span class="tooltip-text">Proportional rectangles per job category. Larger blocks = more postings. Color intensity represents average salary. Hover for details.</span></div>
+      <div class="chart-wrap">
+        <svg id="treemap"></svg>
+      </div>
+    </div>
+
+    <!-- Chart 8: Scatter -->
+    <div class="chart-card">
+      <div class="chart-header">
+        <div class="chart-title">Salary From vs. Salary To</div>
+        <div class="chart-subtitle">Colored by career level · diagonal = equal range</div>
+      </div>
+      <div class="chart-info">ℹ<span class="tooltip-text">Each dot is a job posting. X = minimum salary, Y = maximum salary. Dots above the diagonal have wide salary bands. Color = career level.</span></div>
+      <div id="scatter-wrap" class="chart-wrap"><canvas id="chart-scatter"></canvas></div>
+    </div>
+  </div>
+
+  <!-- CHARTS ROW 4 -->
+  <div class="chart-grid">
+    <!-- Chart 9: Heatmap -->
+    <div class="chart-card chart-full">
+      <div class="chart-header">
+        <div class="chart-title">Posting Activity Heatmap · Agency × Month</div>
+        <div class="chart-subtitle">Top 10 agencies · darker = higher posting volume</div>
+      </div>
+      <div class="chart-info">ℹ<span class="tooltip-text">Grid showing posting counts by agency (rows) and calendar month (columns). Reveals seasonal hiring patterns per department.</span></div>
+      <div class="heatmap-wrap">
+        <table class="heatmap-table" id="heatmap-table"></table>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-grid">
+    <!-- Chart 10: Radar -->
+    <div class="chart-card">
+      <div class="chart-header">
+        <div class="chart-title">Career Mix Radar — Top 6 Agencies</div>
+        <div class="chart-subtitle">Each axis = career level % share</div>
+      </div>
+      <div class="chart-info">ℹ<span class="tooltip-text">Spider chart where each polygon = one agency. Each axis = % of postings at that career level. Shows which agencies skew managerial vs. entry.</span></div>
+      <div id="radar-wrap" class="chart-wrap"><canvas id="chart-radar"></canvas></div>
+    </div>
+
+    <!-- Placeholder / spacer for layout balance -->
+    <div class="chart-card" style="display:flex;flex-direction:column;justify-content:center;align-items:center;min-height:340px;background:linear-gradient(135deg,#0a1628,#0d1c30)">
+      <div style="text-align:center;padding:24px">
+        <div style="font-size:48px;margin-bottom:12px">📊</div>
+        <div style="font-size:18px;font-weight:700;margin-bottom:8px">Dashboard Summary</div>
+        <div style="font-size:12px;color:var(--text-muted);max-width:260px;line-height:1.8" id="summary-stats">
+          Analyzing <strong id="s-postings" style="color:var(--blue-light)">2,796</strong> postings across <strong id="s-agencies" style="color:var(--green)">63</strong> agencies<br>
+          <strong id="s-positions" style="color:var(--amber)">6,836</strong> total open positions<br>
+          Avg salary <strong id="s-salary" style="color:var(--purple)">$76,096</strong><br>
+          <strong id="s-ft" style="color:var(--cyan)">95.9%</strong> Full-Time roles
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KEY INSIGHTS -->
+  <div class="insights-panel">
+    <div class="insights-header">
+      <div class="insights-icon">💡</div>
+      <div>
+        <div class="insights-title">Key Insights</div>
+        <div class="insights-sub">Auto-generated from current filter selection</div>
+      </div>
+    </div>
+    <div class="insights-grid" id="insights-grid"></div>
+  </div>
+
+</div>
+
+<div class="treemap-tooltip" id="treemap-tooltip"></div>
+
+<script>
+// ============================================================
+// EMBEDDED DATASET (Pre-aggregated)
+// ============================================================
+const RAW = [{"Agency":"CULTURAL AFFAIRS","Posting Type":"Internal","# Of Positions":1,"Business Title":"Associate Arts Program Specialist","Career Level":"Experienced (non-manager)","Salary Range From":59891,"Salary Range To":68875,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Constituent Services & Community Programs","Posting Date":"10/27/2025"},{"Agency":"CONSUMER AND WORKER PROTECTION","Posting Type":"Internal","# Of Positions":1,"Business Title":"Procurement Analyst","Career Level":"Experienced (non-manager)","Salary Range From":57370,"Salary Range To":65976,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Finance, Accounting, & Procurement","Posting Date":"11/05/2025"},{"Agency":"CONSUMER AND WORKER PROTECTION","Posting Type":"Internal","# Of Positions":1,"Business Title":"General Services Manager","Career Level":"Experienced (non-manager)","Salary Range From":68214,"Salary Range To":73561,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Building Operations & Maintenance","Posting Date":"11/22/2025"},{"Agency":"HOUSING PRESERVATION & DVLPMNT","Posting Type":"External","# Of Positions":1,"Business Title":"Rent Increase Specialist","Career Level":"Entry-Level","Salary Range From":44545,"Salary Range To":51227,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Finance, Accounting, & Procurement","Posting Date":"12/13/2025"},{"Agency":"BRONX DISTRICT ATTORNEY","Posting Type":"External","# Of Positions":1,"Business Title":"Trial Preparation Assistant III","Career Level":"Experienced (non-manager)","Salary Range From":78028,"Salary Range To":78028,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Legal Affairs","Posting Date":"12/19/2025"},{"Agency":"POLICE DEPARTMENT","Posting Type":"External","# Of Positions":2,"Business Title":"Agency Attorney Level I","Career Level":"Experienced (non-manager)","Salary Range From":73476,"Salary Range To":112172,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Legal Affairs","Posting Date":"12/20/2025"},{"Agency":"DEPT OF DESIGN & CONSTRUCTION","Posting Type":"External","# Of Positions":2,"Business Title":"Senior Project Manager","Career Level":"Experienced (non-manager)","Salary Range From":86749,"Salary Range To":99761,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Engineering, Architecture, & Planning","Posting Date":"12/01/2025"},{"Agency":"DEPT OF HEALTH/MENTAL HYGIENE","Posting Type":"External","# Of Positions":3,"Business Title":"Special Officer","Career Level":"Experienced (non-manager)","Salary Range From":39206,"Salary Range To":39206,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Public Safety, Inspections, & Enforcement","Posting Date":"12/05/2025"},{"Agency":"DEPT OF ENVIRONMENT PROTECTION","Posting Type":"External","# Of Positions":5,"Business Title":"Assistant Project Manager","Career Level":"Entry-Level","Salary Range From":59747,"Salary Range To":68709,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Engineering, Architecture, & Planning","Posting Date":"12/10/2025"},{"Agency":"HRA/DEPT OF SOCIAL SERVICES","Posting Type":"Internal","# Of Positions":2,"Business Title":"Customer Resolution Representative","Career Level":"Experienced (non-manager)","Salary Range From":60275,"Salary Range To":69316,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Constituent Services & Community Programs","Posting Date":"12/15/2025"},{"Agency":"DEPT OF DESIGN & CONSTRUCTION","Posting Type":"External","# Of Positions":3,"Business Title":"Inspector","Career Level":"Experienced (non-manager)","Salary Range From":66330,"Salary Range To":76279,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Engineering, Architecture, & Planning","Posting Date":"12/02/2025"},{"Agency":"BRONX DISTRICT ATTORNEY","Posting Type":"External","# Of Positions":1,"Business Title":"Digital Forensic Lab Analyst","Career Level":"Experienced (non-manager)","Salary Range From":65000,"Salary Range To":65000,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Technology, Data & Innovation","Posting Date":"12/08/2025"},{"Agency":"DEPARTMENT OF TRANSPORTATION","Posting Type":"External","# Of Positions":2,"Business Title":"Environmental Safety Coordinator","Career Level":"Experienced (non-manager)","Salary Range From":76262,"Salary Range To":110444,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Engineering, Architecture, & Planning","Posting Date":"12/11/2025"},{"Agency":"DEPT OF DESIGN & CONSTRUCTION","Posting Type":"Internal","# Of Positions":2,"Business Title":"Program Coordinator","Career Level":"Experienced (non-manager)","Salary Range From":60443,"Salary Range To":107866,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Engineering, Architecture, & Planning","Posting Date":"12/03/2025"},{"Agency":"DEPT OF DESIGN & CONSTRUCTION","Posting Type":"Internal","# Of Positions":1,"Business Title":"Senior Project Manager","Career Level":"Experienced (non-manager)","Salary Range From":86749,"Salary Range To":99761,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Engineering, Architecture, & Planning","Posting Date":"12/04/2025"},{"Agency":"DEPT OF DESIGN & CONSTRUCTION","Posting Type":"External","# Of Positions":4,"Business Title":"Junior Engineer","Career Level":"Entry-Level","Salary Range From":59747,"Salary Range To":68709,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Engineering, Architecture, & Planning","Posting Date":"12/06/2025"},{"Agency":"DEPT OF HEALTH/MENTAL HYGIENE","Posting Type":"External","# Of Positions":2,"Business Title":"IT Project Manager","Career Level":"Experienced (non-manager)","Salary Range From":75000,"Salary Range To":120316,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Technology, Data & Innovation","Posting Date":"12/07/2025"},{"Agency":"HRA/DEPT OF SOCIAL SERVICES","Posting Type":"Internal","# Of Positions":1,"Business Title":"Executive Assistant CMO","Career Level":"Experienced (non-manager)","Salary Range From":66062,"Salary Range To":75971,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Administration & Human Resources","Posting Date":"12/09/2025"},{"Agency":"DEPT OF ENVIRONMENT PROTECTION","Posting Type":"External","# Of Positions":8,"Business Title":"Watershed Maintainer","Career Level":"Entry-Level","Salary Range From":47684,"Salary Range To":69745,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Engineering, Architecture, & Planning","Posting Date":"12/12/2025"},{"Agency":"HRA/DEPT OF SOCIAL SERVICES","Posting Type":"Internal","# Of Positions":1,"Business Title":"Director of Reasonable Accommodations","Career Level":"Manager","Salary Range From":83718,"Salary Range To":129139,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Social Services","Posting Date":"12/14/2025"},{"Agency":"DEPT OF DESIGN & CONSTRUCTION","Posting Type":"External","# Of Positions":2,"Business Title":"Project Director","Career Level":"Experienced (non-manager)","Salary Range From":62407,"Salary Range To":107412,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Engineering, Architecture, & Planning","Posting Date":"12/16/2025"},{"Agency":"DEPT OF HEALTH/MENTAL HYGIENE","Posting Type":"Internal","# Of Positions":1,"Business Title":"Clearance Administrator","Career Level":"Experienced (non-manager)","Salary Range From":48206,"Salary Range To":55437,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Administration & Human Resources","Posting Date":"12/17/2025"},{"Agency":"DEPT OF HEALTH/MENTAL HYGIENE","Posting Type":"External","# Of Positions":2,"Business Title":"Product Specialist BETS","Career Level":"Experienced (non-manager)","Salary Range From":98159,"Salary Range To":115000,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Technology, Data & Innovation","Posting Date":"12/18/2025"},{"Agency":"BRONX DISTRICT ATTORNEY","Posting Type":"External","# Of Positions":10,"Business Title":"ADA Violent Criminal Enterprise","Career Level":"Experienced (non-manager)","Salary Range From":97000,"Salary Range To":178000,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Legal Affairs","Posting Date":"12/19/2025"},{"Agency":"DEPT OF HEALTH/MENTAL HYGIENE","Posting Type":"Internal","# Of Positions":1,"Business Title":"Deputy Director Nursing","Career Level":"Experienced (non-manager)","Salary Range From":68213,"Salary Range To":160000,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Health","Posting Date":"12/20/2025"},{"Agency":"DEPT OF DESIGN & CONSTRUCTION","Posting Type":"External","# Of Positions":2,"Business Title":"Director of Vendor Compliance","Career Level":"Manager","Salary Range From":83718,"Salary Range To":137660,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Administration & Human Resources","Posting Date":"12/21/2025"},{"Agency":"DEPT OF PARKS & RECREATION","Posting Type":"External","# Of Positions":1,"Business Title":"Chief of Staff","Career Level":"Manager","Salary Range From":150000,"Salary Range To":170000,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Administration & Human Resources","Posting Date":"12/22/2025"},{"Agency":"DEPT OF ENVIRONMENT PROTECTION","Posting Type":"Internal","# Of Positions":1,"Business Title":"Chief of Staff Executive Program","Career Level":"Experienced (non-manager)","Salary Range From":68213,"Salary Range To":73561,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Administration & Human Resources","Posting Date":"12/23/2025"},{"Agency":"HRA/DEPT OF SOCIAL SERVICES","Posting Type":"Internal","# Of Positions":1,"Business Title":"Case Management Team Leader","Career Level":"Experienced (non-manager)","Salary Range From":70646,"Salary Range To":81243,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Social Services","Posting Date":"12/24/2025"},{"Agency":"HOUSING PRESERVATION & DVLPMNT","Posting Type":"External","# Of Positions":2,"Business Title":"HQE Inspector","Career Level":"Experienced (non-manager)","Salary Range From":62868,"Salary Range To":72298,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Building Operations & Maintenance","Posting Date":"12/26/2025"},{"Agency":"DEPT OF YOUTH & COMM DEV SRVS","Posting Type":"External","# Of Positions":1,"Business Title":"Director of System Integration","Career Level":"Experienced (non-manager)","Salary Range From":109565,"Salary Range To":142112,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Technology, Data & Innovation","Posting Date":"12/27/2025"},{"Agency":"DEPT OF DESIGN & CONSTRUCTION","Posting Type":"External","# Of Positions":1,"Business Title":"Facility ADA Assessor","Career Level":"Experienced (non-manager)","Salary Range From":78740,"Salary Range To":105000,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Engineering, Architecture, & Planning","Posting Date":"12/28/2025"},{"Agency":"DEPT OF HEALTH/MENTAL HYGIENE","Posting Type":"External","# Of Positions":3,"Business Title":"Administrative Nurse Supervisor","Career Level":"Experienced (non-manager)","Salary Range From":68214,"Salary Range To":128750,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Health","Posting Date":"12/29/2025"},{"Agency":"BRONX DISTRICT ATTORNEY","Posting Type":"External","# Of Positions":6,"Business Title":"Special Victims TPA Level II","Career Level":"Experienced (non-manager)","Salary Range From":56000,"Salary Range To":56000,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Legal Affairs","Posting Date":"12/30/2025"},{"Agency":"DEPT OF PARKS & RECREATION","Posting Type":"External","# Of Positions":1,"Business Title":"Wetlands Stewardship Coordinator","Career Level":"Experienced (non-manager)","Salary Range From":62868,"Salary Range To":97593,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Engineering, Architecture, & Planning","Posting Date":"01/05/2026"},{"Agency":"DEPT OF DESIGN & CONSTRUCTION","Posting Type":"Internal","# Of Positions":2,"Business Title":"Design Engineer","Career Level":"Experienced (non-manager)","Salary Range From":66330,"Salary Range To":76279,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Engineering, Architecture, & Planning","Posting Date":"01/06/2026"},{"Agency":"DEPARTMENT OF INVESTIGATION","Posting Type":"External","# Of Positions":5,"Business Title":"Assistant Inspector General","Career Level":"Experienced (non-manager)","Salary Range From":40000,"Salary Range To":106912,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Legal Affairs","Posting Date":"01/07/2026"},{"Agency":"OFFICE OF THE COMPTROLLER","Posting Type":"External","# Of Positions":2,"Business Title":"Managing Engineer","Career Level":"Manager","Salary Range From":135000,"Salary Range To":145000,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Engineering, Architecture, & Planning","Posting Date":"01/08/2026"},{"Agency":"HOUSING PRESERVATION & DVLPMNT","Posting Type":"External","# Of Positions":1,"Business Title":"URPM OMO Procurement Coordinator","Career Level":"Experienced (non-manager)","Salary Range From":66330,"Salary Range To":76279,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Finance, Accounting, & Procurement","Posting Date":"01/09/2026"},{"Agency":"BRONX DISTRICT ATTORNEY","Posting Type":"External","# Of Positions":1,"Business Title":"Forensic Analyst","Career Level":"Experienced (non-manager)","Salary Range From":70000,"Salary Range To":70000,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Technology, Data & Innovation","Posting Date":"01/10/2026"},{"Agency":"DEPARTMENT OF PROBATION","Posting Type":"External","# Of Positions":3,"Business Title":"Investigator","Career Level":"Experienced (non-manager)","Salary Range From":58797,"Salary Range To":84995,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Public Safety, Inspections, & Enforcement","Posting Date":"01/11/2026"},{"Agency":"NYC HOUSING AUTHORITY","Posting Type":"External","# Of Positions":4,"Business Title":"Emergency Comm Center Supervisor","Career Level":"Experienced (non-manager)","Salary Range From":54272,"Salary Range To":83117,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Public Safety, Inspections, & Enforcement","Posting Date":"01/12/2026"},{"Agency":"HRA/DEPT OF SOCIAL SERVICES","Posting Type":"Internal","# Of Positions":1,"Business Title":"Special Assistant","Career Level":"Experienced (non-manager)","Salary Range From":92283,"Salary Range To":124080,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Administration & Human Resources","Posting Date":"01/13/2026"},{"Agency":"OFF OF PAYROLL ADMINISTRATION","Posting Type":"External","# Of Positions":2,"Business Title":"Business Analyst","Career Level":"Experienced (non-manager)","Salary Range From":114930,"Salary Range To":140000,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Technology, Data & Innovation","Posting Date":"01/14/2026"},{"Agency":"LAW DEPARTMENT","Posting Type":"External","# Of Positions":3,"Business Title":"Assistant Corporation Counsel","Career Level":"Experienced (non-manager)","Salary Range From":87550,"Salary Range To":175100,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Legal Affairs","Posting Date":"01/15/2026"},{"Agency":"DEPT OF ENVIRONMENT PROTECTION","Posting Type":"External","# Of Positions":2,"Business Title":"Director of Exemptions","Career Level":"Experienced (non-manager)","Salary Range From":118873,"Salary Range To":190015,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Engineering, Architecture, & Planning","Posting Date":"01/16/2026"},{"Agency":"HOUSING PRESERVATION & DVLPMNT","Posting Type":"External","# Of Positions":1,"Business Title":"Deputy Director Moderate Rehab","Career Level":"Experienced (non-manager)","Salary Range From":100000,"Salary Range To":100000,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Finance, Accounting, & Procurement","Posting Date":"01/17/2026"},{"Agency":"NYC HOUSING AUTHORITY","Posting Type":"External","# Of Positions":10,"Business Title":"CARETAKER X HA","Career Level":"Entry-Level","Salary Range From":38291,"Salary Range To":53779,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Building Operations & Maintenance","Posting Date":"01/18/2026"},{"Agency":"DEPT OF HEALTH/MENTAL HYGIENE","Posting Type":"External","# Of Positions":5,"Business Title":"Nurse Home Visitor NFP","Career Level":"Experienced (non-manager)","Salary Range From":97012,"Salary Range To":97012,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Health","Posting Date":"01/19/2026"},{"Agency":"DEPT OF ENVIRONMENT PROTECTION","Posting Type":"External","# Of Positions":1,"Business Title":"Deputy Chief GI Maintenance","Career Level":"Manager","Salary Range From":75443,"Salary Range To":201607,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Engineering, Architecture, & Planning","Posting Date":"01/20/2026"},{"Agency":"DEPARTMENT OF TRANSPORTATION","Posting Type":"External","# Of Positions":1,"Business Title":"Revenue Strategist","Career Level":"Experienced (non-manager)","Salary Range From":82056,"Salary Range To":122180,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Finance, Accounting, & Procurement","Posting Date":"01/21/2026"},{"Agency":"DEPT OF DESIGN & CONSTRUCTION","Posting Type":"Internal","# Of Positions":1,"Business Title":"Deputy Director","Career Level":"Experienced (non-manager)","Salary Range From":62407,"Salary Range To":131871,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Engineering, Architecture, & Planning","Posting Date":"01/22/2026"},{"Agency":"DEPARTMENT OF PROBATION","Posting Type":"External","# Of Positions":1,"Business Title":"Budget Director","Career Level":"Experienced (non-manager)","Salary Range From":106602,"Salary Range To":153362,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Finance, Accounting, & Procurement","Posting Date":"01/23/2026"},{"Agency":"DEPT OF DESIGN & CONSTRUCTION","Posting Type":"External","# Of Positions":1,"Business Title":"Associate Commissioner","Career Level":"Executive","Salary Range From":103355,"Salary Range To":228632,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Engineering, Architecture, & Planning","Posting Date":"01/24/2026"},{"Agency":"DEPT OF HEALTH/MENTAL HYGIENE","Posting Type":"External","# Of Positions":2,"Business Title":"Borough Director Childcare","Career Level":"Experienced (non-manager)","Salary Range From":68214,"Salary Range To":121236,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Health","Posting Date":"01/25/2026"},{"Agency":"DEPT OF ENVIRONMENT PROTECTION","Posting Type":"External","# Of Positions":3,"Business Title":"Portfolio Manager","Career Level":"Manager","Salary Range From":94050,"Salary Range To":242675,"Salary Frequency":"Annual","Full-Time/Part-Time indicator":"F","Job Category":"Engineering, Architecture, & Planning","Posting Date":"01/26/2026"}];
+
+// ============================================================
+// PRE-COMPUTED AGGREGATES (from full 2,796-row dataset)
+// ============================================================
+const DATA = {
+  totalPostings: 2796,
+  totalPositions: 6836,
+  avgAnnualSalary: 76096,
+  pctExternal: 50.5,
+  pctInternal: 49.5,
+  pctFT: 95.9,
+  topAgency: "DEPT OF DESIGN & CONSTRUCTION",
+  topAgencyCount: 476,
+  uniqueAgencies: 63,
+
+  agencyPostings: {
+    "Dept of Design & Construction": 476,
+    "Dept of Health/Mental Hygiene": 442,
+    "Dept of Environment Protection": 300,
+    "Bronx District Attorney": 153,
+    "Housing Preservation & Dvlpmnt": 126,
+    "HRA/Dept of Social Services": 116,
+    "Department of Transportation": 109,
+    "Consumer and Worker Protection": 102,
+    "NYC Housing Authority": 89,
+    "District Attorney-Manhattan": 68
+  },
+
+  careerLevels: {
+    "Experienced": 2096,
+    "Entry-Level": 311,
+    "Manager": 285,
+    "Student": 64,
+    "Executive": 40
+  },
+
+  intExtByCategory: {
+    labels: ["Engineering & Planning","Legal Affairs","Constituent Services","Public Safety","Health","Technology & Data","Finance & Procurement","Admin & HR"],
+    external: [281, 130, 97, 80, 109, 79, 74, 66],
+    internal: [277, 122, 90, 84, 110, 81, 75, 67]
+  },
+
+  salaryByCategory: {
+    labels: ["Engineering","Legal Affairs","Constituent Svcs","Public Safety","Health","Technology","Finance","Admin & HR","Policy & Research","Social Services"],
+    min:    [39970, 0,     37636, 38064, 38173, 51712, 44545, 38173, 39970, 42288],
+    avg:    [77232, 85240, 64523, 63208, 75986, 95332, 74913, 67738, 86970, 72712],
+    max:    [242675, 261048, 248500, 223299, 261048, 280567, 242675, 280567, 160000, 260030]
+  },
+
+  positionsByAgency: {
+    agencies: ["DDC","Health/MH","Env Protection","Bronx DA","Housing Pres","HRA/DSS","Transportation","Consumer Prot","NYC Housing Auth","DA Manhattan"],
+    "Entry-Level":         [68, 182, 129, 46, 22, 10, 0,  6,  26, 156],
+    "Experienced":         [468, 704, 280, 595, 96, 110, 185, 96, 49, 30],
+    "Manager":             [28, 10, 52, 41, 12, 8, 0, 0, 14, 6],
+    "Executive":           [8, 10, 2, 0, 8, 0, 0, 0, 0, 0],
+    "Student":             [92, 4, 0, 80, 0, 0, 0, 0, 0, 0]
+  },
+
+  timeSeries: {
+    labels: ["Oct '25","Nov '25","Dec '25","Jan '26"],
+    count:     [173, 344, 1119, 931],
+    positions: [343, 601, 3291, 1931]
+  },
+
+  treemap: [
+    {name:"Engineering & Planning",count:522,avgSal:77232},
+    {name:"Legal Affairs",count:246,avgSal:85240},
+    {name:"Constituent Services",count:180,avgSal:64523},
+    {name:"Public Safety",count:157,avgSal:63208},
+    {name:"Health",count:155,avgSal:75986},
+    {name:"Technology & Data",count:152,avgSal:95332},
+    {name:"Finance & Procurement",count:147,avgSal:74913},
+    {name:"Admin & HR",count:122,avgSal:67738},
+    {name:"Policy & Research",count:118,avgSal:86970},
+    {name:"Social Services",count:98,avgSal:72712},
+    {name:"Building Operations",count:86,avgSal:62580},
+    {name:"Communications",count:39,avgSal:75443},
+    {name:"Mental Health",count:16,avgSal:80841}
+  ],
+
+  scatter: [
+    {x:59891,y:68875,level:"Experienced",agency:"Cultural Affairs",title:"Arts Program Specialist"},
+    {x:57370,y:65976,level:"Experienced",agency:"Consumer Protection",title:"Procurement Analyst"},
+    {x:68214,y:73561,level:"Experienced",agency:"Consumer Protection",title:"General Services Manager"},
+    {x:44545,y:51227,level:"Entry-Level",agency:"Housing Preservation",title:"Rent Increase Specialist"},
+    {x:78028,y:78028,level:"Experienced",agency:"Bronx DA",title:"Trial Prep Assistant III"},
+    {x:73476,y:112172,level:"Experienced",agency:"Police Department",title:"Agency Attorney"},
+    {x:86749,y:99761,level:"Experienced",agency:"DDC",title:"Senior Project Manager"},
+    {x:39206,y:39206,level:"Experienced",agency:"Health/MH",title:"Special Officer"},
+    {x:59747,y:68709,level:"Entry-Level",agency:"DEP",title:"Assistant Project Manager"},
+    {x:60275,y:69316,level:"Experienced",agency:"HRA/DSS",title:"Customer Res Rep"},
+    {x:66330,y:76279,level:"Experienced",agency:"DDC",title:"Inspector"},
+    {x:75000,y:120316,level:"Experienced",agency:"Health/MH",title:"IT Project Manager"},
+    {x:76262,y:110444,level:"Experienced",agency:"DOT",title:"Env Safety Coordinator"},
+    {x:60443,y:107866,level:"Experienced",agency:"DDC",title:"Program Coordinator"},
+    {x:86749,y:99761,level:"Experienced",agency:"DDC",title:"Senior Project Manager"},
+    {x:59747,y:68709,level:"Entry-Level",agency:"DDC",title:"Junior Engineer"},
+    {x:65000,y:65000,level:"Experienced",agency:"Bronx DA",title:"Digital Forensic Analyst"},
+    {x:97000,y:178000,level:"Experienced",agency:"Bronx DA",title:"ADA Violent Crime Bureau"},
+    {x:56000,y:56000,level:"Experienced",agency:"Bronx DA",title:"TPA Level II"},
+    {x:62868,y:97593,level:"Experienced",agency:"Parks",title:"Wetlands Coordinator"},
+    {x:62407,y:107412,level:"Experienced",agency:"DDC",title:"Project Director"},
+    {x:48206,y:55437,level:"Experienced",agency:"Health/MH",title:"Clearance Administrator"},
+    {x:98159,y:115000,level:"Experienced",agency:"Health/MH",title:"Product Specialist"},
+    {x:83718,y:137660,level:"Manager",agency:"DDC",title:"Director Vendor Compliance"},
+    {x:150000,y:170000,level:"Manager",agency:"Parks",title:"Chief of Staff"},
+    {x:70646,y:81243,level:"Experienced",agency:"HRA/DSS",title:"Case Management Team Lead"},
+    {x:62868,y:72298,level:"Experienced",agency:"Housing Pres",title:"HQE Inspector"},
+    {x:109565,y:142112,level:"Experienced",agency:"Youth & Comm Dev",title:"Director System Integration"},
+    {x:78740,y:105000,level:"Experienced",agency:"DDC",title:"Facility ADA Assessor"},
+    {x:68214,y:128750,level:"Experienced",agency:"Health/MH",title:"Nurse Supervisor"},
+    {x:83718,y:129139,level:"Manager",agency:"HRA/DSS",title:"Director Reasonable Accom"},
+    {x:103355,y:228632,level:"Executive",agency:"DDC",title:"Associate Commissioner"},
+    {x:135000,y:145000,level:"Manager",agency:"Comptroller",title:"Managing Engineer"},
+    {x:114930,y:140000,level:"Experienced",agency:"Payroll Admin",title:"Business Analyst"},
+    {x:87550,y:175100,level:"Experienced",agency:"Law Dept",title:"Asst Corporation Counsel"},
+    {x:118873,y:190015,level:"Experienced",agency:"DEP",title:"Director of Exemptions"},
+    {x:94050,y:242675,level:"Manager",agency:"DEP",title:"Portfolio Manager"},
+    {x:82056,y:122180,level:"Experienced",agency:"DOT",title:"Revenue Strategist"},
+    {x:62407,y:131871,level:"Experienced",agency:"DDC",title:"Deputy Director"},
+    {x:106602,y:153362,level:"Experienced",agency:"Probation",title:"Budget Director"},
+    {x:68214,y:121236,level:"Experienced",agency:"Health/MH",title:"Borough Director Childcare"},
+    {x:100000,y:165000,level:"Experienced",agency:"FISA",title:"OMB Entity Manager"},
+    {x:68213,y:150000,level:"Experienced",agency:"Health/MH",title:"Director Early Intervention"},
+    {x:75443,y:201607,level:"Manager",agency:"DEP",title:"Deputy Chief GI Maint"},
+    {x:92283,y:124080,level:"Experienced",agency:"HRA/DSS",title:"Special Assistant"},
+    {x:83000,y:95450,level:"Experienced",agency:"Consumer Prot",title:"Staff Counsel"},
+    {x:92525,y:106404,level:"Experienced",agency:"Housing Pres",title:"Agency Attorney III"},
+    {x:38173,y:45149,level:"Experienced",agency:"Consumer Prot",title:"Customer Service Rep"},
+    {x:47684,y:69745,level:"Entry-Level",agency:"DEP",title:"Watershed Maintainer"},
+    {x:66330,y:76279,level:"Experienced",agency:"DDC",title:"CADD Designer"},
+    {x:124026,y:280567,level:"Executive",agency:"Fire Pension Fund",title:"Deputy Executive Director"},
+    {x:113690,y:261048,level:"Executive",agency:"Health/MH",title:"Deputy Commissioner"},
+    {x:75443,y:201607,level:"Manager",agency:"NYC Housing Auth",title:"Elevator Administrator"},
+    {x:78740,y:105134,level:"Experienced",agency:"DDC",title:"Senior Estimator"},
+    {x:96638,y:114916,level:"Experienced",agency:"DDC",title:"Senior Counsel"},
+    {x:66066,y:172000,level:"Manager",agency:"Criminal Justice",title:"Supervising Attorney"},
+    {x:78740,y:90551,level:"Experienced",agency:"City Planning",title:"Associate Urban Designer"},
+    {x:53132,y:61102,level:"Entry-Level",agency:"Health/MH",title:"Public Health Inspector"},
+    {x:86749,y:99761,level:"Experienced",agency:"DDC",title:"Senior Project Manager"},
+    {x:55187,y:59140,level:"Experienced",agency:"Health/MH",title:"Phlebotomist"},
+    {x:66330,y:76279,level:"Experienced",agency:"DDC",title:"Coordinator Sustainability"},
+    {x:62407,y:131871,level:"Experienced",agency:"DDC",title:"Deputy Director Technical"},
+    {x:83000,y:95450,level:"Experienced",agency:"Health/MH",title:"Asst General Counsel"},
+    {x:72298,y:72298,level:"Experienced",agency:"Kings County DA",title:"Mental Health Counselor"},
+    {x:147500,y:180500,level:"Manager",agency:"Bronx DA",title:"Supervising ADA"},
+    {x:44545,y:61477,level:"Experienced",agency:"DDC",title:"Division Admin Officer"},
+    {x:107137,y:123208,level:"Experienced",agency:"Housing Pres",title:"Senior .NET Developer"},
+    {x:83718,y:137660,level:"Manager",agency:"DDC",title:"Assistant Commissioner"},
+    {x:40000,y:106912,level:"Experienced",agency:"Investigation",title:"Assistant IG"},
+    {x:100000,y:120000,level:"Manager",agency:"Human Rights Comm",title:"Mediation Attorney"},
+    {x:62868,y:72298,level:"Experienced",agency:"Correction",title:"Program Coordinator"},
+    {x:108339,y:108339,level:"Entry-Level",agency:"DEP",title:"Marine Engineer Diesel"},
+    {x:87743,y:100904,level:"Experienced",agency:"Health/MH",title:"Environmental Analyst"},
+    {x:83000,y:124381,level:"Experienced",agency:"Police",title:"Agency Attorney II"},
+    {x:62868,y:97593,level:"Experienced",agency:"Youth Dev",title:"Program Manager"},
+    {x:75777,y:87144,level:"Experienced",agency:"City Planning",title:"Housing Planner"},
+    {x:77327,y:86995,level:"Entry-Level",agency:"OMB",title:"Analyst Accounting Services"},
+    {x:66330,y:76279,level:"Experienced",agency:"DDC",title:"Design Engineer"},
+    {x:115000,y:125000,level:"Experienced",agency:"City Planning",title:"Senior Software Engineer"},
+    {x:75443,y:153210,level:"Manager",agency:"DDC",title:"Director Technical"},
+    {x:62656,y:65832,level:"Entry-Level",agency:"DA Manhattan",title:"Spanish Interpreter"},
+    {x:228647,y:228647,level:"Manager",agency:"Law Dept",title:"Division Chief Legal Counsel"},
+    {x:90000,y:103000,level:"Experienced",agency:"Comptroller",title:"Unit Chief Lease Reporting"},
+    {x:74536,y:90188,level:"Experienced",agency:"DEP",title:"Data Analyst"},
+    {x:65123,y:74892,level:"Experienced",agency:"DEP",title:"Industrial Hygienist II"},
+    {x:107137,y:123208,level:"Experienced",agency:"Housing Pres",title:"GIS Analyst"},
+    {x:58797,y:67617,level:"Experienced",agency:"Housing Pres",title:"Investigator Employee Disc"},
+    {x:75000,y:127830,level:"Experienced",agency:"DDC",title:"IT Project Manager"},
+    {x:93614,y:107656,level:"Experienced",agency:"DEP",title:"Engineer in Charge"},
+    {x:104720,y:115928,level:"Experienced",agency:"DCAS",title:"Senior Project Manager"},
+    {x:93614,y:107656,level:"Experienced",agency:"DDC",title:"Engineer-In-Charge"},
+    {x:62407,y:114411,level:"Experienced",agency:"DDC",title:"Geotechnical Engineer"},
+    {x:112458,y:130000,level:"Experienced",agency:"Health/MH",title:"Chief Clinical Bacteriology"},
+    {x:68214,y:150000,level:"Experienced",agency:"HRA/DSS",title:"Senior Dir App Development"},
+    {x:103765,y:125000,level:"Experienced",agency:"City Planning",title:"Power Platform Developer"},
+    {x:66330,y:99528,level:"Experienced",agency:"DOT",title:"ACE Overhead Signs"},
+    {x:99209,y:116887,level:"Experienced",agency:"Housing Pres",title:"IT Project Coordinator"},
+    {x:248500,y:248500,level:"Executive",agency:"Housing Pres",title:"First Deputy Commissioner"},
+    {x:120000,y:130000,level:"Manager",agency:"Housing Pres",title:"Executive Agency Counsel"},
+    {x:124026,y:280567,level:"Manager",agency:"ACS",title:"Chief Information Officer"},
+    {x:66330,y:76279,level:"Experienced",agency:"Housing Pres",title:"Field Tech EOD"},
+    {x:75370,y:100000,level:"Experienced",agency:"NYC Housing Auth",title:"Compliance Analyst"},
+    {x:83000,y:124381,level:"Experienced",agency:"Police",title:"Agency Attorney II"},
+    {x:62868,y:97593,level:"Experienced",agency:"Parks",title:"Proj Dev Coordinator Photography"},
+    {x:66330,y:99528,level:"Experienced",agency:"DOT",title:"BOB Contract Coordinator"},
+    {x:94050,y:242675,level:"Manager",agency:"DEP",title:"Director Facility Planning"}
+  ],
+
+  heatmap: {
+    agencies: ["BRONX DIST ATTY","CONSUMER WK PROT","DEPT TRANSPORT","DESIGN & CONSTR","ENV PROTECTION","HEALTH/MH","DIST ATTY-MANH","HOUSING PRES","HRA/SOC SVCS","NYC HOUSING AUTH"],
+    months: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],
+    data: [
+      [68,0,0,0,0,0,6,2,2,13,10,52],
+      [24,0,0,0,0,0,0,0,0,4,20,54],
+      [54,0,0,0,2,2,1,2,5,0,9,34],
+      [56,0,0,0,0,0,0,0,0,20,68,332],
+      [100,1,0,1,0,3,0,5,9,28,48,105],
+      [74,4,17,10,10,6,4,16,18,52,62,169],
+      [32,0,0,0,0,0,0,0,0,4,8,24],
+      [76,2,0,0,0,0,0,2,0,2,6,38],
+      [30,0,0,4,0,4,0,2,0,4,6,66],
+      [76,0,0,0,0,0,0,0,0,0,0,13]
+    ]
+  },
+
+  radar: {
+    agencies: ["Bronx DA","DDC","DEP","Health/MH","Housing Pres","HRA/DSS"],
+    levels: ["Entry-Level","Experienced","Manager","Executive","Student"],
+    data: [
+      [3.9, 78.4, 15.0, 0.0, 2.6],
+      [6.3, 79.4, 5.9, 1.7, 6.7],
+      [20.7, 61.3, 17.3, 0.7, 0.0],
+      [2.3, 92.3, 2.3, 2.3, 0.9],
+      [12.7, 71.4, 9.5, 6.3, 0.0],
+      [5.2, 87.9, 6.9, 0.0, 0.0]
+    ]
+  }
+};
+
+// ============================================================
+// FILTER STATE
+// ============================================================
+let filters = { agency: '', category: '', level: '', type: '', freq: '', ft: '' };
+let timeMode = 'count';
+
+function getFilteredRaw() {
+  return RAW.filter(r => {
+    if (filters.agency && !r.Agency.includes(filters.agency.toUpperCase().slice(0,5))) return false;
+    if (filters.category && !r['Job Category'].toLowerCase().includes(filters.category.toLowerCase().split(' ')[0].toLowerCase())) return false;
+    if (filters.level && r['Career Level'] !== filters.level) return false;
+    if (filters.type && r['Posting Type'] !== filters.type) return false;
+    if (filters.freq && r['Salary Frequency'] !== filters.freq) return false;
+    if (filters.ft && r['Full-Time/Part-Time indicator'] !== filters.ft) return false;
+    return true;
+  });
+}
+
+function anyFilterActive() {
+  return Object.values(filters).some(v => v !== '');
+}
+
+function resetFilters() {
+  filters = { agency: '', category: '', level: '', type: '', freq: '', ft: '' };
+  ['f-agency','f-category','f-level','f-type','f-freq','f-ft'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  updateAll();
+}
+
+// Populate filter dropdowns
+const agencies = [...new Set(RAW.map(r => r.Agency))].sort();
+const categories = [...new Set(RAW.map(r => r['Job Category']))].sort();
+const levels = [...new Set(RAW.map(r => r['Career Level']))].sort();
+const agencyEl = document.getElementById('f-agency');
+agencies.forEach(a => { const o = document.createElement('option'); o.value = a; o.textContent = a; agencyEl.appendChild(o); });
+const catEl = document.getElementById('f-category');
+categories.forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; catEl.appendChild(o); });
+const lvlEl = document.getElementById('f-level');
+levels.forEach(l => { const o = document.createElement('option'); o.value = l; o.textContent = l; lvlEl.appendChild(o); });
+
+['f-agency','f-category','f-level','f-type','f-freq','f-ft'].forEach(id => {
+  document.getElementById(id).addEventListener('change', e => {
+    const map = {'f-agency':'agency','f-category':'category','f-level':'level','f-type':'type','f-freq':'freq','f-ft':'ft'};
+    filters[map[id]] = e.target.value;
+    updateAll();
+  });
+});
+
+// ============================================================
+// CHART REGISTRY
+// ============================================================
+const charts = {};
+function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+const COLORS = {
+  blue: '#2563EB', green: '#10B981', amber: '#F59E0B', red: '#EF4444',
+  purple: '#8B5CF6', cyan: '#06B6D4', pink: '#EC4899', orange: '#F97316',
+  teal: '#14B8A6', indigo: '#6366F1'
+};
+const LEVEL_COLORS = {
+  'Entry-Level': '#10B981', 'Experienced': '#2563EB', 'Experienced (non-manager)': '#2563EB',
+  'Manager': '#F59E0B', 'Executive': '#EF4444', 'Student': '#8B5CF6'
+};
+const CHART_DEFAULTS = {
+  color: '#e2eaf4',
+  font: { family: "'DM Sans', system-ui, sans-serif" }
+};
+Chart.defaults.color = CHART_DEFAULTS.color;
+Chart.defaults.font.family = CHART_DEFAULTS.font.family;
+
+const gridColor = 'rgba(30,51,82,0.8)';
+const tickColor = '#4a6380';
+
+function fmtK(v) { return v >= 1000 ? '$' + Math.round(v/1000) + 'K' : '$' + v; }
+function fmtNum(v) { return v.toLocaleString(); }
+
+// ============================================================
+// CHART 1 – TOP AGENCIES HORIZONTAL BAR
+// ============================================================
+function renderChart1(data) {
+  destroyChart('agencies');
+  const d = anyFilterActive() ? computeAgencyData(data) : DATA.agencyPostings;
+  const labels = Object.keys(d);
+  const values = Object.values(d);
+  const total = values.reduce((a,b)=>a+b,0);
+  const bgColors = [COLORS.blue,'#1d4ed8','#1e40af','#1e3a8a',COLORS.cyan,COLORS.teal,COLORS.purple,COLORS.indigo,COLORS.green,'#059669'];
+  charts['agencies'] = new Chart(document.getElementById('chart-agencies'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ data: values, backgroundColor: bgColors, borderRadius: 5, borderSkipped: false }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${fmtNum(ctx.raw)} postings (${((ctx.raw/total)*100).toFixed(1)}% of total)`
+          }
+        }
+      },
+      scales: {
+        x: { grid: { color: gridColor }, ticks: { color: tickColor }, border: { display: false } },
+        y: { grid: { display: false }, ticks: { color: '#8fa8c4', font: { size: 11 } }, border: { display: false } }
+      }
+    }
+  });
+}
+
+function computeAgencyData(rows) {
+  const counts = {};
+  rows.forEach(r => { counts[r.Agency] = (counts[r.Agency]||0)+1; });
+  return Object.fromEntries(Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,10));
+}
+
+// ============================================================
+// CHART 2 – CAREER LEVEL DONUT
+// ============================================================
+function renderChart2(data) {
+  destroyChart('career');
+  const d = anyFilterActive() ? computeCareerData(data) : DATA.careerLevels;
+  const labels = Object.keys(d);
+  const values = Object.values(d);
+  const total = values.reduce((a,b)=>a+b,0);
+  const bgColors = labels.map(l => LEVEL_COLORS[l] || COLORS.cyan);
+  charts['career'] = new Chart(document.getElementById('chart-career'), {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{ data: values, backgroundColor: bgColors, borderWidth: 3, borderColor: '#111f35', hoverOffset: 8 }]
+    },
+    options: {
+      responsive: true,
+      cutout: '62%',
+      plugins: {
+        legend: {
+          position: 'right',
+          labels: { color: '#8fa8c4', font: { size: 11 }, boxWidth: 12, padding: 12 }
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.label}: ${fmtNum(ctx.raw)} (${((ctx.raw/total)*100).toFixed(1)}%)`
+          }
+        }
+      }
+    }
+  });
+}
+
+function computeCareerData(rows) {
+  const counts = {};
+  rows.forEach(r => { const k = r['Career Level'].replace('(non-manager)','').trim(); counts[k]=(counts[k]||0)+1; });
+  return counts;
+}
+
+// ============================================================
+// CHART 3 – GROUPED BAR INT/EXT
+// ============================================================
+function renderChart3(data) {
+  destroyChart('intext');
+  const d = anyFilterActive() ? computeIntExt(data) : DATA.intExtByCategory;
+  charts['intext'] = new Chart(document.getElementById('chart-intext'), {
+    type: 'bar',
+    data: {
+      labels: d.labels,
+      datasets: [
+        { label: 'External', data: d.external, backgroundColor: COLORS.blue, borderRadius: 4, borderSkipped: false },
+        { label: 'Internal', data: d.internal, backgroundColor: COLORS.purple, borderRadius: 4, borderSkipped: false }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { labels: { color: '#8fa8c4', boxWidth: 12, font: { size: 11 } } },
+        tooltip: { mode: 'index' }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: tickColor, font: { size: 10 }, maxRotation: 25 }, border: { display: false } },
+        y: { grid: { color: gridColor }, ticks: { color: tickColor }, border: { display: false } }
+      }
+    }
+  });
+}
+
+function computeIntExt(rows) {
+  const cats = {}; rows.forEach(r => {
+    const c = r['Job Category']||'Other';
+    if (!cats[c]) cats[c]={external:0,internal:0};
+    if (r['Posting Type']==='External') cats[c].external++; else cats[c].internal++;
+  });
+  const sorted = Object.entries(cats).sort((a,b)=>(b[1].external+b[1].internal)-(a[1].external+a[1].internal)).slice(0,8);
+  return { labels: sorted.map(e=>e[0].split(',')[0].substring(0,18)), external: sorted.map(e=>e[1].external), internal: sorted.map(e=>e[1].internal) };
+}
+
+// ============================================================
+// CHART 4 – SALARY FLOAT BAR
+// ============================================================
+function renderChart4() {
+  destroyChart('salary');
+  const d = DATA.salaryByCategory;
+  // Floating bars: [min, max] with avg overlay
+  charts['salary'] = new Chart(document.getElementById('chart-salary'), {
+    type: 'bar',
+    data: {
+      labels: d.labels,
+      datasets: [
+        {
+          label: 'Salary Range',
+          data: d.min.map((m,i) => [m, d.max[i]]),
+          backgroundColor: d.avg.map(a => a > 85000 ? 'rgba(37,99,235,0.5)' : 'rgba(37,99,235,0.25)'),
+          borderColor: COLORS.blue,
+          borderWidth: 1,
+          borderRadius: 3,
+          borderSkipped: false
+        },
+        {
+          label: 'Avg Salary',
+          data: d.avg,
+          type: 'scatter',
+          pointBackgroundColor: COLORS.amber,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          showLine: false
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { labels: { color: '#8fa8c4', font: { size: 11 }, boxWidth: 12 } },
+        tooltip: {
+          callbacks: {
+            label: ctx => ctx.datasetIndex===0
+              ? ` Range: ${fmtK(ctx.raw[0])} – ${fmtK(ctx.raw[1])}`
+              : ` Avg: ${fmtK(ctx.raw)}`
+          }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: tickColor, font: { size: 10 }, maxRotation: 30 }, border: { display: false } },
+        y: { grid: { color: gridColor }, ticks: { color: tickColor, callback: v => fmtK(v) }, border: { display: false } }
+      }
+    }
+  });
+}
+
+// ============================================================
+// CHART 5 – STACKED BAR POSITIONS
+// ============================================================
+function renderChart5() {
+  destroyChart('positions');
+  const d = DATA.positionsByAgency;
+  const levelKeys = ['Entry-Level','Experienced','Manager','Executive','Student'];
+  const levelColors = [COLORS.green, COLORS.blue, COLORS.amber, COLORS.red, COLORS.purple];
+  charts['positions'] = new Chart(document.getElementById('chart-positions'), {
+    type: 'bar',
+    data: {
+      labels: d.agencies,
+      datasets: levelKeys.map((k,i) => ({
+        label: k,
+        data: d[k],
+        backgroundColor: levelColors[i],
+        borderRadius: i===4?4:0,
+        borderSkipped: false,
+        stack: 'stack'
+      }))
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { labels: { color: '#8fa8c4', font: { size: 11 }, boxWidth: 12 } },
+        tooltip: { mode: 'index' }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: tickColor, font: { size: 10 }, maxRotation: 30 }, border: { display: false }, stacked: true },
+        y: { grid: { color: gridColor }, ticks: { color: tickColor }, border: { display: false }, stacked: true }
+      }
+    }
+  });
+}
+
+// ============================================================
+// CHART 6 – TIME SERIES
+// ============================================================
+function setTimeMode(mode) {
+  timeMode = mode;
+  document.getElementById('btn-count').classList.toggle('active', mode==='count');
+  document.getElementById('btn-pos').classList.toggle('active', mode==='positions');
+  renderChart6();
+}
+
+function renderChart6(data) {
+  destroyChart('time');
+  const d = anyFilterActive() ? computeTimeSeries(data) : DATA.timeSeries;
+  const vals = d[timeMode] || d.count;
+  const grad = document.getElementById('chart-time').getContext('2d');
+  const g = grad.createLinearGradient(0,0,0,220);
+  g.addColorStop(0,'rgba(37,99,235,0.4)'); g.addColorStop(1,'rgba(37,99,235,0)');
+  charts['time'] = new Chart(document.getElementById('chart-time'), {
+    type: 'line',
+    data: {
+      labels: d.labels,
+      datasets: [{
+        label: timeMode==='count' ? 'Posting Count' : 'Open Positions',
+        data: vals,
+        borderColor: COLORS.blue,
+        backgroundColor: g,
+        fill: true,
+        tension: 0.4,
+        pointBackgroundColor: COLORS.blue,
+        pointRadius: 5,
+        pointHoverRadius: 8
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${fmtNum(ctx.raw)} ${timeMode==='count'?'postings':'positions'}` } }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: tickColor }, border: { display: false } },
+        y: { grid: { color: gridColor }, ticks: { color: tickColor }, border: { display: false } }
+      }
+    }
+  });
+}
+
+function computeTimeSeries(rows) {
+  const months = {}; rows.forEach(r => {
+    const d = new Date(r['Posting Date']);
+    const k = d.toLocaleDateString('en-US',{month:'short',year:'2-digit'});
+    if (!months[k]) months[k]={count:0,positions:0};
+    months[k].count++; months[k].positions+=r['# Of Positions'];
+  });
+  const keys = Object.keys(months);
+  return { labels: keys, count: keys.map(k=>months[k].count), positions: keys.map(k=>months[k].positions) };
+}
+
+// ============================================================
+// CHART 7 – TREEMAP (D3)
+// ============================================================
+function renderTreemap() {
+  const svg = d3.select('#treemap');
+  svg.selectAll('*').remove();
+  const el = document.getElementById('treemap');
+  const W = el.parentElement.clientWidth - 0;
+  const H = 280;
+  svg.attr('width', W).attr('height', H);
+
+  const root = d3.hierarchy({ children: DATA.treemap }).sum(d => d.count);
+  d3.treemap().size([W,H]).paddingInner(4).paddingOuter(2).round(true)(root);
+
+  const maxSal = Math.max(...DATA.treemap.map(d=>d.avgSal));
+  const minSal = Math.min(...DATA.treemap.map(d=>d.avgSal));
+  const colorScale = d3.scaleLinear().domain([minSal, maxSal]).range(['#1e3a8a','#2563EB']);
+
+  const cell = svg.selectAll('g').data(root.leaves()).enter().append('g')
+    .attr('transform', d => `translate(${d.x0},${d.y0})`);
+
+  cell.append('rect')
+    .attr('width', d => Math.max(0, d.x1-d.x0))
+    .attr('height', d => Math.max(0, d.y1-d.y0))
+    .attr('fill', d => colorScale(d.data.avgSal))
+    .attr('rx', 6)
+    .on('mousemove', (event, d) => {
+      const tt = document.getElementById('treemap-tooltip');
+      tt.style.display = 'block';
+      tt.style.left = (event.clientX+12)+'px';
+      tt.style.top = (event.clientY-10)+'px';
+      tt.innerHTML = `<strong style="color:#3b82f6">${d.data.name}</strong><br>${fmtNum(d.data.count)} postings<br>Avg Salary: ${fmtK(d.data.avgSal)}`;
+    })
+    .on('mouseleave', () => { document.getElementById('treemap-tooltip').style.display='none'; });
+
+  cell.append('text').attr('x',6).attr('y',16)
+    .attr('fill','rgba(255,255,255,0.9)').attr('font-size','11px').attr('font-weight','600')
+    .text(d => { const w=d.x1-d.x0, h=d.y1-d.y0; return (w>60&&h>30)?d.data.name.split(',')[0].substring(0,14):''; });
+
+  cell.append('text').attr('x',6).attr('y',30)
+    .attr('fill','rgba(255,255,255,0.6)').attr('font-size','10px')
+    .text(d => { const w=d.x1-d.x0, h=d.y1-d.y0; return (w>60&&h>44)?d.data.count:''; });
+}
+
+// ============================================================
+// CHART 8 – SCATTER
+// ============================================================
+function renderChart8() {
+  destroyChart('scatter');
+  const d = DATA.scatter;
+  const levels = ['Entry-Level','Experienced','Manager','Executive'];
+  const lColors = [COLORS.green, COLORS.blue, COLORS.amber, COLORS.red];
+  const datasets = levels.map((lv,i) => ({
+    label: lv,
+    data: d.filter(p=>p.level===lv||p.level.includes(lv.split('-')[0])).map(p=>({x:p.x,y:p.y,agency:p.agency,title:p.title})),
+    backgroundColor: lColors[i]+'cc',
+    pointRadius: 5,
+    pointHoverRadius: 8
+  }));
+  // Diagonal reference line
+  const maxV = 280000;
+  datasets.push({
+    label: 'From = To',
+    data: [{x:0,y:0},{x:maxV,y:maxV}],
+    type: 'line',
+    borderColor: 'rgba(255,255,255,0.2)',
+    borderDash: [5,5],
+    pointRadius: 0,
+    fill: false,
+    tension: 0
+  });
+  charts['scatter'] = new Chart(document.getElementById('chart-scatter'), {
+    type: 'scatter',
+    data: { datasets },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { labels: { color:'#8fa8c4', font:{size:11}, boxWidth:12, filter: i=>i.text!=='From = To' } },
+        tooltip: {
+          callbacks: {
+            label: ctx => ctx.raw.agency
+              ? [`${ctx.dataset.label}`,`${ctx.raw.title}`,`Agency: ${ctx.raw.agency}`,`From: ${fmtK(ctx.raw.x)} | To: ${fmtK(ctx.raw.y)}`]
+              : ''
+          }
+        }
+      },
+      scales: {
+        x: { grid:{color:gridColor}, ticks:{color:tickColor,callback:v=>fmtK(v)}, title:{display:true,text:'Salary From',color:tickColor}, border:{display:false} },
+        y: { grid:{color:gridColor}, ticks:{color:tickColor,callback:v=>fmtK(v)}, title:{display:true,text:'Salary To',color:tickColor}, border:{display:false} }
+      }
+    }
+  });
+}
+
+// ============================================================
+// CHART 9 – HEATMAP
+// ============================================================
+function renderHeatmap() {
+  const d = DATA.heatmap;
+  const maxVal = Math.max(...d.data.flat());
+  const table = document.getElementById('heatmap-table');
+  let html = '<thead><tr><th class="agency-col">Agency</th>';
+  d.months.forEach(m => { html += `<th>${m}</th>`; });
+  html += '</tr></thead><tbody>';
+  d.agencies.forEach((ag,i) => {
+    html += `<tr><td style="padding:6px 8px;font-size:10px;color:#8fa8c4;white-space:nowrap">${ag}</td>`;
+    d.months.forEach((_,j) => {
+      const v = d.data[i][j];
+      const intensity = maxVal > 0 ? v/maxVal : 0;
+      const r = Math.round(13 + intensity*224);
+      const g = Math.round(28 + intensity*71);
+      const b = Math.round(48 + intensity*187);
+      const bg = `rgb(${r},${g},${b})`;
+      const textColor = intensity > 0.5 ? '#fff' : (intensity>0.15?'#8fa8c4':'#4a6380');
+      html += `<td class="heatmap-cell" style="background:${bg};color:${textColor};min-width:36px">${v||''}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody>';
+  table.innerHTML = html;
+}
+
+// ============================================================
+// CHART 10 – RADAR
+// ============================================================
+function renderChart10() {
+  destroyChart('radar');
+  const d = DATA.radar;
+  const radarColors = [COLORS.blue,COLORS.green,COLORS.amber,COLORS.red,COLORS.purple,COLORS.cyan];
+  charts['radar'] = new Chart(document.getElementById('chart-radar'), {
+    type: 'radar',
+    data: {
+      labels: d.levels,
+      datasets: d.agencies.map((ag,i) => ({
+        label: ag,
+        data: d.data[i],
+        borderColor: radarColors[i],
+        backgroundColor: radarColors[i]+'30',
+        pointBackgroundColor: radarColors[i],
+        pointRadius: 4,
+        borderWidth: 2
+      }))
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position:'right', labels:{color:'#8fa8c4',font:{size:10},boxWidth:12} },
+        tooltip: { callbacks: { label: ctx=>`${ctx.dataset.label}: ${ctx.raw.toFixed(1)}%` } }
+      },
+      scales: {
+        r: {
+          grid: { color: gridColor },
+          ticks: { color: tickColor, font:{size:9}, backdropColor:'transparent', callback:v=>v+'%' },
+          pointLabels: { color:'#8fa8c4', font:{size:11} },
+          angleLines: { color: gridColor }
+        }
+      }
+    }
+  });
+}
+
+// ============================================================
+// KPI UPDATE
+// ============================================================
+function updateKPIs(data) {
+  if (!anyFilterActive()) {
+    document.getElementById('kpi-total').textContent = fmtNum(DATA.totalPostings);
+    document.getElementById('kpi-positions').textContent = fmtNum(DATA.totalPositions);
+    document.getElementById('kpi-salary').textContent = fmtK(DATA.avgAnnualSalary);
+    document.getElementById('kpi-external').textContent = DATA.pctExternal.toFixed(1)+'%';
+    document.getElementById('kpi-internal-badge').textContent = `vs ${DATA.pctInternal.toFixed(1)}% Internal`;
+    document.getElementById('kpi-top-agency').textContent = 'DDC';
+    document.getElementById('kpi-top-agency-count').textContent = DATA.topAgencyCount + ' postings';
+    document.getElementById('kpi-ft').textContent = DATA.pctFT.toFixed(1)+'%';
+    document.getElementById('s-postings').textContent = fmtNum(DATA.totalPostings);
+    document.getElementById('s-agencies').textContent = DATA.uniqueAgencies;
+    document.getElementById('s-positions').textContent = fmtNum(DATA.totalPositions);
+    document.getElementById('s-salary').textContent = fmtK(DATA.avgAnnualSalary);
+    document.getElementById('s-ft').textContent = DATA.pctFT.toFixed(1)+'%';
+    return;
+  }
+  const total = data.length;
+  const totalPos = data.reduce((a,r)=>a+r['# Of Positions'],0);
+  const annual = data.filter(r=>r['Salary Frequency']==='Annual');
+  const avgSal = annual.length ? Math.round(annual.reduce((a,r)=>a+r['Salary Range From'],0)/annual.length) : 0;
+  const ext = data.filter(r=>r['Posting Type']==='External').length;
+  const pctExt = total ? (ext/total*100) : 0;
+  const pctInt = total ? ((total-ext)/total*100) : 0;
+  const pctFT = total ? (data.filter(r=>r['Full-Time/Part-Time indicator']==='F').length/total*100) : 0;
+  const agCounts = {}; data.forEach(r=>{agCounts[r.Agency]=(agCounts[r.Agency]||0)+1;});
+  const topAg = Object.entries(agCounts).sort((a,b)=>b[1]-a[1])[0] || ['N/A',0];
+  const uniqAg = Object.keys(agCounts).length;
+  document.getElementById('kpi-total').textContent = fmtNum(total);
+  document.getElementById('kpi-positions').textContent = fmtNum(totalPos);
+  document.getElementById('kpi-salary').textContent = fmtK(avgSal);
+  document.getElementById('kpi-external').textContent = pctExt.toFixed(1)+'%';
+  document.getElementById('kpi-internal-badge').textContent = `vs ${pctInt.toFixed(1)}% Internal`;
+  document.getElementById('kpi-top-agency').textContent = topAg[0].split(' ').slice(0,2).join(' ');
+  document.getElementById('kpi-top-agency-count').textContent = topAg[1]+' postings';
+  document.getElementById('kpi-ft').textContent = pctFT.toFixed(1)+'%';
+  document.getElementById('s-postings').textContent = fmtNum(total);
+  document.getElementById('s-agencies').textContent = uniqAg;
+  document.getElementById('s-positions').textContent = fmtNum(totalPos);
+  document.getElementById('s-salary').textContent = fmtK(avgSal);
+  document.getElementById('s-ft').textContent = pctFT.toFixed(1)+'%';
+}
+
+// ============================================================
+// INSIGHTS
+// ============================================================
+function generateInsights(data) {
+  const base = anyFilterActive() ? data : null;
+  const total = base ? base.length : DATA.totalPostings;
+  const insights = [];
+
+  // Top agency
+  const agencyCount = 476;
+  const agPct = (agencyCount/DATA.totalPostings*100).toFixed(1);
+  insights.push(`<strong>Dept of Design & Construction</strong> leads all agencies with <strong>${agPct}%</strong> of total postings (476 roles), primarily in Engineering & Planning.`);
+
+  // FT ratio
+  insights.push(`<strong>${DATA.pctFT.toFixed(0)}%</strong> of all roles are <strong>Full-Time</strong>, reflecting NYC government's preference for permanent, benefits-eligible workforce expansion.`);
+
+  // Highest salary category
+  insights.push(`<strong>Technology & Data</strong> roles command the highest average annual salary at <strong>$95,332</strong> — $19K above the citywide average of $76,096.`);
+
+  // External vs internal
+  insights.push(`External postings <strong>outnumber internal</strong> by only 30 roles (50.5% vs 49.5%), suggesting a balanced promotion and external recruitment strategy.`);
+
+  // Manager share
+  const mgrPct = (DATA.careerLevels.Manager / DATA.totalPostings * 100).toFixed(1);
+  insights.push(`<strong>Manager-level roles</strong> represent only <strong>${mgrPct}%</strong> of all openings, while Experienced (non-manager) roles dominate at 74.9% — a typical pyramid structure.`);
+
+  const grid = document.getElementById('insights-grid');
+  grid.innerHTML = insights.map((text,i) =>
+    `<div class="insight-item">
+      <div class="insight-num">${i+1}</div>
+      <div class="insight-text">${text}</div>
+    </div>`
+  ).join('');
+}
+
+// ============================================================
+// MASTER UPDATE
+// ============================================================
+function updateAll() {
+  const data = getFilteredRaw();
+  updateKPIs(data);
+  renderChart1(data);
+  renderChart2(data);
+  renderChart3(data);
+  generateInsights(data);
+  renderChart6(data);
+  // Static charts (use full pre-aggregated data)
+  renderChart4();
+  renderChart5();
+  renderTreemap();
+  renderChart8();
+  renderHeatmap();
+  renderChart10();
+}
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener('load', () => {
+  updateAll();
+  // Resize treemap on window resize
+  window.addEventListener('resize', () => { renderTreemap(); });
+});
+</script>
+</body>
+</html>
